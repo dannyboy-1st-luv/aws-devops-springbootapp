@@ -9,7 +9,7 @@ phases:
       # Log in to Amazon ECR
       - aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/f3n6y8n2/springboot
       # Define repository URI and image tag
-      - REPOSITORY_URI=public.ecr.aws/v5x8e8x1/ecr-demo
+      - REPOSITORY_URI=public.ecr.aws/f3n6y8n2/springboot
       - IMAGE_TAG=build-$(echo $CODEBUILD_BUILD_ID | awk -F":" '{print $2}')
   build:
     commands:
