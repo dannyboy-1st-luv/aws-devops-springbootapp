@@ -1,14 +1,42 @@
 version: 0.2
+
 phases:
-  install:
+  pre_build:
     commands:
-    - curl -s https://releases.hashicorp.com/terraform/1.12.2/terraform_1.12.2_linux_386.zip -o Terraform.zip
-    - unzip Terraform.zip
+      - echo Logging in to Amazon ECR....
+      # Check AWS CLI version
+      - aws --version
+      # Log in to Amazon ECR
+      - aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/f3n6y8n2/springboot
+      # Define repository URI and image tag
+      - REPOSITORY_URI=public.ecr.aws/v5x8e8x1/ecr-demo
+      - IMAGE_TAG=build-$(echo $CODEBUILD_BUILD_ID | awk -F":" '{print $2}')
   build:
     commands:
-    - ./terraform init
-    - ./terraform apply --auto-approve
+      - echo Build started on date
+      - echo Building the JAR file...
+      # Build the Java project using Maven
+      - mvn clean install
+      - echo Building the Docker image...
+      # Build and tag Docker image
+      - docker build -t $REPOSITORY_URI:latest .
+      - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
+  post_build:
+    commands:
+      - echo Build completed on date
+      - echo Pushing the Docker image to ECR...
+      # Push Docker images to ECR
+      - docker push $REPOSITORY_URI:latest
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+      - echo Writing image definitions file...
+      # Define container name and create imagedefinitions.json for ECS
+      - DOCKER_CONTAINER_NAME=springboot
+      - printf '[{"name":"%s","imageUri":"%s"}]' $DOCKER_CONTAINER_NAME $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
+      - echo $DOCKER_CONTAINER_NAME
+      - echo Displaying imagedefinitions.json content
+      - cat imagedefinitions.json
+
 artifacts:
-  name: TerraformPlan
   files:
-  - "*state*"
+    - imagedefinitions.json
+    - target/springboot-aws-deploy.jar
